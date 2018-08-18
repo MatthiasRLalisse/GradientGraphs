@@ -36,43 +36,47 @@ def readTripletsData(dataDirectory, typed=False):
 		with open(dataDirectory + typeFile, 'r') as f:
 			type2idx = { line.split()[0]: int(line.split('\t')[1]) for line in f.readlines()[1:] }
 	with open(dataDirectory + trainFile, 'r') as f:
-		trainData = [ (int(line.split()[0]), int(line.split()[2]), int(line.split()[1]), int(line.split()[3])) for line in f.readlines()[1:] ]
+		trainData = [ [ int(i) for i in line.split() ] for line in f.readlines()[1:] ]
 	with open(dataDirectory + devFile, 'r') as f:
-		devData = [ (int(line.split()[0]), int(line.split()[2]), int(line.split()[1]), int(line.split()[3])) for line in f.readlines()[1:] ]
+		devData = [ [ int(i) for i in line.split() ] for line in f.readlines()[1:] ]
 	with open(dataDirectory + testFile, 'r') as f:
-		testData = [ (int(line.split()[0]), int(line.split()[2]), int(line.split()[1]), int(line.split()[3])) for line in f.readlines()[1:] ]
+		testData = [ [ int(i) for i in line.split() ] for line in f.readlines()[1:] ]
 	if typeConstraintsFile in os.listdir(dataDirectory):
 		with open(dataDirectory + typeConstraintsFile, 'r') as f:
 			lines = f.readlines()
-		typeConstraints_left = { line[0]: line[2:] for line in [ [ int(i) for i in l.split() ] for j, l in enumerate(lines[1:]) if j%2 == 0 ] }
-		typeConstraints_right = { line[0]: line[2:] for line in [ [ int(i) for i in l.split() ] for j, l in enumerate(lines[1:]) if j%2 == 1 ] }
+		typeConstraints_left = { line[0]: line[2:] for line in [ [ int(i) for i in \
+				l.split() ] for j, l in enumerate(lines[1:]) if j%2 == 0 ] }
+		typeConstraints_right = { line[0]: line[2:] for line in [ [ int(i) for i in \
+				l.split() ] for j, l in enumerate(lines[1:]) if j%2 == 1 ] }
 	else: 
-		typeConstraints_left = defaultValueDict(); typeConstraints_left.set_default(list(range(len(entityIndexLookup))))
-		typeConstraints_right = defaultValueDict(); typeConstraints_right.set_default(list(range(len(entityIndexLookup))))
+		typeConstraints_left = defaultValueDict()
+		typeConstraints_left.set_default(list(range(len(entityIndexLookup))))
+		typeConstraints_right = defaultValueDict()
+		typeConstraints_right.set_default(list(range(len(entityIndexLookup))))
 	#compile triplets filter -- returns True if the triplet occurs in the training, dev, or test data. 
-	tripletsFilter = defaultFalseDict({(e1,r,e2): True for e1, r, e2, e1type in trainData + devData + testData} )
-	e1s_train = []
-	rs_train = []
-	e2s_train = []
-	e1types_train = []
-	e1types_train = []
-	for e1,r,e2, e1type in trainData:
-		e1s_train.append(e1); rs_train.append(r); e2s_train.append(e2); e1types_train.append(e1type)
-	trainData = [e1s_train, rs_train, e2s_train, e1types_train]
-	e1s_dev = []
-	rs_dev = []
-	e2s_dev = []
-	e1types_dev = []
-	for e1,r,e2, e1type in devData:
-		e1s_dev.append(e1); rs_dev.append(r); e2s_dev.append(e2); e1types_dev.append(e1type)
-	devData = [e1s_dev, rs_dev, e2s_dev, e1types_dev]
-	e1s_test = []
-	rs_test = []
-	e2s_test = []
-	e1types_test = []
-	for e1,r,e2,e1type in testData:
-		e1s_test.append(e1); rs_test.append(r); e2s_test.append(e2); e1types_test.append(e1type)
-	testData = [e1s_test, rs_test, e2s_test, e1types_test]
+	tripletsFilter = defaultFalseDict({(line[0], line[2], line[1]): True for line in trainData + devData + testData} )
+	e1s_train = []; rs_train = []; e2s_train = []
+	if typed:
+		e1types_train = []
+	for line in trainData:
+		e1s_train.append(line[0]); rs_train.append(line[2]); e2s_train.append(line[1]) 
+		if typed: e1types_train.append(line[3])
+	trainData = [e1s_train, rs_train, e2s_train]
+	if typed: trainData.append(e1types_train)
+	e1s_dev = []; rs_dev = []; e2s_dev = []
+	if typed: e1types_dev = []
+	for line in devData:
+		e1s_dev.append(line[0]); rs_dev.append(line[2]); e2s_dev.append(line[1])
+		if typed: e1types_dev.append(line[3])
+	devData = [e1s_dev, rs_dev, e2s_dev]
+	if typed: devData.append(e1types_dev)
+	e1s_test = []; rs_test = []; e2s_test = []
+	if typed: e1types_test = []
+	for line in testData:
+		e1s_test.append(line[0]); rs_test.append(line[2]); e2s_test.append(line[1])
+		if typed: e1types_test.append(line[3])
+	testData = [e1s_test, rs_test, e2s_test]
+	if typed: testData.append(e1types_test)
 	data = {'train':trainData, 'valid':devData, 'test':testData, 'filter':tripletsFilter, 'entity2idx':entity2idx,
 			'relation2idx':relation2idx, 'candidates_l':typeConstraints_left, 'candidates_r':typeConstraints_right}
 	if typed:

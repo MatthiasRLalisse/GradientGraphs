@@ -123,6 +123,8 @@ class KBEModel(object):
 				self.epoch = max(epoch_nums)
 			print('restoring from epoch {0} model'.format(self.epoch) + '\t'+self.model_dir +\
 							'/%s-epoch_%i.ckpt' % (self.name, self.epoch))
+			self.saver.restore(self.sess, self.model_dir + \
+					('/%s-epoch_%i.ckpt' % (self.name, self.epoch)))
 		else: self.epoch = 0
 
 		
@@ -136,7 +138,9 @@ class KBETaskSetting(object):
 		self.negsamples = negsamples
 		self.batch_size = batch_size
 		self.typed = typed
-		if data_presets[dataName]: dataDirectory = data_presets[dataName]
+		if data_presets[dataName]: 
+			dataDirectory = data_presets[dataName]; self.dataName = dataName
+		else: self.dataName = dataDirectory.split('/')[-1]
 		self.data = self.get_data(dataDirectory, typed)
 		self.n_entity = max(self.data['entity2idx'].values())+1
 		self.n_relation = max(self.data['relation2idx'].values())+1
@@ -247,7 +251,7 @@ class KBETaskSetting(object):
 			rank = [ ranks_.index(entity_1[j])+1 for j,ranks_ in enumerate(ranked_entities) ]
 		return rank
 
-	def test(self, sess, model, test_set=False, interactive=False):
+	def eval(self, sess, model, test_set=False, interactive=False):
 		print('testing...\n') 
 		if test_set: 
 			eval_data = self.data['test']
@@ -306,9 +310,3 @@ class KBETaskSetting(object):
 				'Hits1': (hits_1l + hits_1r)/(n_examples*2)}
 		return results
 		
-	#with open(output_file,'a') as f:
-	#	f.write( str(min_epoch)+'\t\t'+'\t\t'.join( [ label + ' ' + str(value) for label,value in results ] ) + '\n')
-	#accuracy = (hits_10l+hits_10r)/(2*n_examples)
-	#sys.exit()
-
-

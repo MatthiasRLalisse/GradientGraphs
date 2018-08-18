@@ -1,0 +1,2 @@
+model_checkpoint_path: "DistMult25D1.0L-epoch_2.ckpt"
+all_model_checkpoint_paths: "DistMult25D1.0L-epoch_2.ckpt"
