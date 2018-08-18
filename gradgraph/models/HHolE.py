@@ -12,7 +12,8 @@ class HHolE(KBEModel):
 		lambda_=None,
 		lrate=.001,
 		model_dir='trained_models',
-		dataName='None' ):
+		dataName='DataUnknown',
+		epoch_num=None ):
 		assert n_entity and n_relation
 		name = 'HHolE%iD%sL.%s' % (entity_dim, str(lambda_) if lambda_ else 'inf', dataName)
 		relation_dim = h_dim = entity_dim
@@ -21,10 +22,11 @@ class HHolE(KBEModel):
 					h_dim=h_dim,
 					n_entity=n_entity,
 					n_relation=n_relation,
-					lambda_=None,
+					lambda_=lambda_,
 					lrate=lrate,
 					name=name,
-					model_dir=model_dir)
+					model_dir=model_dir,
+					epoch_num=epoch_num)
 		self.mu_h_1, self.mu_h_2 = self.mu_entities()
 
 

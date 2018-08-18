@@ -1,9 +1,8 @@
 import tensorflow as tf
 import numpy as np
 import os, re, sys
-from .utils import readTripletsData, defaultFalseDict, permuteList
-eps = .25
-no_zeros = 10e-10
+from .utils import readTripletsData, defaultValueDict, defaultFalseDict, permuteList
+eps = .25	#weight matrices constrained to have l2 norm |W| <= lambda_ - eps
 
 data_presets = defaultFalseDict({'freebase':'./data/FB15K', 'wordnet':'./data/WN18'})	
 		#collection of standard datasets packaged here
@@ -26,7 +25,7 @@ class KBEModel(object):
 		self.entity_dim = entity_dim; self.relation_dim = relation_dim; self.h_dim=h_dim
 		self.n_entity = n_entity; self.n_relation = n_relation
 		self.lrate = lrate
-		self.lambda_=2.5
+		self.lambda_=lambda_
 		self.build_embeddings()
 				
 		self.x = self.build_x()
@@ -56,9 +55,9 @@ class KBEModel(object):
 		r_embed = tf.nn.embedding_lookup(self.r_embeddings, self.r_choice)
 		e2_embed = tf.nn.embedding_lookup(self.e_embeddings, self.e2_choice)
 
-		self.e1 = tf.nn.l2_normalize(e1_embed + tf.to_float(tf.equal(e1_embed, 0.))*no_zeros, axis=2)
-		self.r = tf.expand_dims(tf.nn.l2_normalize(r_embed + tf.to_float(tf.equal(r_embed, 0.))*no_zeros, axis=1),1)
-		self.e2 = tf.nn.l2_normalize(e2_embed + tf.to_float(tf.equal(e2_embed, 0.))*no_zeros, axis=2)
+		self.e1 = tf.nn.l2_normalize(e1_embed, axis=2)
+		self.r = tf.expand_dims(tf.nn.l2_normalize(r_embed, axis=1),1)
+		self.e2 = tf.nn.l2_normalize(e2_embed, axis=2)
 	
 	def build_x(self):	#define this in model subclass
 		raise NotImplementedError()
@@ -67,7 +66,10 @@ class KBEModel(object):
 		with tf.variable_scope(self.name, reuse=tf.AUTO_REUSE):
 			W_ = tf.get_variable("W_", shape=[self.h_dim, self.h_dim], 
 				initializer=tf.contrib.layers.xavier_initializer(), dtype=tf.float32)
-			W = tf.clip_by_norm((tf.transpose(W_) + W_)/2., self.lambda_-eps)
+			if self.lambda_:
+				W = tf.clip_by_norm((tf.transpose(W_) + W_)/2., self.lambda_-eps)
+			else:
+				W = tf.clip_by_norm((tf.transpose(W_) + W_)/2., 2.5)
 			b = tf.get_variable("b_", shape=[self.h_dim], \
 				initializer=tf.contrib.layers.xavier_initializer(), dtype=tf.float32)
 		return W, b
@@ -90,7 +92,7 @@ class KBEModel(object):
 				-self.W,axes=[2,0])),axis=2) - tf.tensordot(self.mu_h,self.b,axes=[2,0])\
 				+ self.lambda_*tf.reduce_sum(tf.square(self.mu_h -
 				self.x),axis=2))
-		else:	#if lambda_ is not specified, then self.mu_h == x (i.e. lambda_ == inf)
+		else:	#if lambda_ is not specified, then self.mu_h == self.x (i.e. lambda_ == inf)
 			H = -1./2.*(tf.reduce_sum(tf.multiply(self.mu_h,tf.tensordot(self.mu_h,\
 				-self.W,axes=[2,0])),axis=2) - tf.tensordot(self.mu_h,self.b,axes=[2,0]))
 		return H
@@ -118,7 +120,7 @@ class KBEModel(object):
 		epoch_nums = [ int(line_.split('_',1)[1].split('.',1)[0]) for line_ in checkpoints ]
 		if len(epoch_nums) > 0:
 			if epoch_num:
-				self.epoch = test_only if test_only in epoch_nums else min(epoch_nums)
+				self.epoch = epoch_num if epoch_num in epoch_nums else min(epoch_nums)
 			else:
 				self.epoch = max(epoch_nums)
 			print('restoring from epoch {0} model'.format(self.epoch) + '\t'+self.model_dir +\
@@ -134,22 +136,29 @@ class KBETaskSetting(object):
 		dataDirectory='./data/',
 		typed=False,
 		negsamples=100,
-		batch_size=100):
+		batch_size=100,
+		filtered=True,		#if False, use raw eval setting
+		type_constrain=True):	#if True, candidate entities must satisfy relational type constraints
 		self.negsamples = negsamples
 		self.batch_size = batch_size
-		self.typed = typed
+		self.typed = typed; self.filtered = filtered; self.type_constrain = type_constrain
 		if data_presets[dataName]: 
 			dataDirectory = data_presets[dataName]; self.dataName = dataName
 		else: self.dataName = dataDirectory.split('/')[-1]
 		self.data = self.get_data(dataDirectory, typed)
 		self.n_entity = max(self.data['entity2idx'].values())+1
 		self.n_relation = max(self.data['relation2idx'].values())+1
+		if not self.filtered: self.data['filter'] = defaultFalseDict()
+		if not self.type_constrain: 
+			constraints = defaultValueDict(); constraints.set_default(list(range(self.n_entity)))
+			self.data['candidates_l'] = self.data['candidates_r'] = constraints
 		if typed: self.n_types = max(self.data['type2idx'].values())
 
 	def get_data(self, dataDirectory, typed):
 		return readTripletsData(dataDirectory, typed)
 	
-	def trainLoop(self, sess, model, e1choice, rchoice, e2choice, e1choice_neg, e2choice_neg, e1types=None):
+	def trainLoop(self, model, e1choice, rchoice, e2choice, e1choice_neg, e2choice_neg, sess=None, e1types=None):
+		if not sess: sess = model.sess
 		batch_size = len(rchoice)
 		e1_choice_ = [ [ e1choice[j] for i in range(self.negsamples+1) ] for j in range(batch_size) ]
 		e1_choice_neg = [ [ e1choice[j] ] + e1choice_neg[j] for j in range(batch_size) ]
@@ -178,7 +187,8 @@ class KBETaskSetting(object):
 		batch_loss_right = np.sum(batch_loss_right)
 		return batch_loss_left + batch_loss_right
 
-	def trainEpoch(self, sess, model, interactive=False):
+	def trainEpoch(self, model, sess=None, interactive=False):
+		if not sess: sess = model.sess
 		epoch = model.epoch + 1
 		e1s_train, rs_train, e2s_train = self.data['train'][:3]
 		if self.typed: e1types_train = self.data['train'][3]
@@ -203,19 +213,20 @@ class KBETaskSetting(object):
 									for m in range(len(e1choice)) ]
 			e2choice_neg = [ [ np.random.randint(self.n_entity) for n in range(self.negsamples) ] \
 									for m in range(len(e2choice)) ]
-			batch_loss = self.trainLoop(sess, model, e1choice, rchoice, e2choice, \
-							e1choice_neg, e2choice_neg, e1types=e1types)
+			batch_loss = self.trainLoop(model, e1choice, rchoice, e2choice, \
+							e1choice_neg, e2choice_neg, sess=sess, e1types=e1types)
 			epoch_error += batch_loss
 			if interactive: 
 				sys.stdout.flush(); 
 				sys.stdout.write(('\rtraining epoch %i \tbatch %i of %i \tbatch loss = %f\t\t'\
-								% (epoch, i, batches_, batch_loss))+'\r')
+								% (epoch, i+1, batches_, batch_loss))+'\r')
 			#save trained model
 		model_path = model.model_dir + '/' + model.name + '-epoch_%i.ckpt' % (epoch,)
 		model.saver.save(sess, model_path)
 		model.epoch += 1
 
-	def rankEntities(self, sess, model, entity_1s,relations_,entity_2s, direction='r'):
+	def rankEntities(self, model, entity_1s,relations_,entity_2s, sess=None, direction='r'):
+		if not sess: sess = model.sess
 		true_triplets = (entity_1s,relations_,entity_2s)
 		candidates_ = []
 		entities_ = []; relations__ = []
@@ -243,21 +254,24 @@ class KBETaskSetting(object):
 		ranked = [ [ candidates[i] for i in candidates_perms[j] ] for j,candidates in enumerate(candidates_) ]
 		return ranked
 
-	def rank(self, sess, model, entity_1, relation_, entity_2, direction='r'):
-		ranked_entities = self.rankEntities(sess, model, entity_1, relation_, entity_2, direction)
+	def rank(self, model, entity_1, relation_, entity_2, sess=None, direction='r'):
+		if not sess: sess = model.sess
+		ranked_entities = self.rankEntities(model, entity_1, relation_, entity_2, \
+									sess=sess, direction=direction)
 		if direction=='r':
 			rank = [ ranks_.index(entity_2[j])+1 for j, ranks_ in enumerate(ranked_entities) ]
 		else:
 			rank = [ ranks_.index(entity_1[j])+1 for j,ranks_ in enumerate(ranked_entities) ]
 		return rank
 
-	def eval(self, sess, model, test_set=False, interactive=False):
+	def eval(self, model, sess=None, test_set=False, interactive=False):
+		if not sess: sess = model.sess
 		print('testing...\n') 
 		if test_set: 
 			eval_data = self.data['test']
 		else:
 			eval_data = self.data['valid']
-		e1s_test, rs_test, e2s_test = eval_data[:3]
+		e1s_test, rs_test, e2s_test = [ d[:1000] for d in eval_data[:3] ]
 		test_batch_size = 1
 		perm_ = np.random.permutation(len(e2s_test))
 		e1s_test_p, rs_test_p, e2s_test_p = [ permuteList(l, perm_) for l in [e1s_test,rs_test,e2s_test] ]
@@ -269,12 +283,12 @@ class KBETaskSetting(object):
 			e1_, r_, e2_ = [ l[k*test_batch_size:k*test_batch_size + test_batch_size] \
 							for l in [e1s_test_p, rs_test_p, e2s_test_p ] ]
 			n_examples += len(e1_)
-			right_rank = self.rank(sess, model, e1_,r_,e2_,direction='r')
+			right_rank = self.rank(model, e1_,r_,e2_, sess=sess, direction='r')
 			right_rank_arr = np.array(right_rank,dtype=np.int32)
 			hits_1r += np.sum(right_rank_arr == 1)
 			hits_3r += np.sum(right_rank_arr <= 3)
 			hits_10r += np.sum(right_rank_arr <= 10)
-			left_rank = self.rank(sess, model, e1_,r_,e2_,direction='l')
+			left_rank = self.rank(model, e1_,r_,e2_, sess=sess, direction='l')
 			left_rank_arr = np.array(left_rank)
 			hits_1l += np.sum(left_rank_arr == 1)
 			hits_3l += np.sum(left_rank_arr <= 3)
@@ -290,13 +304,13 @@ class KBETaskSetting(object):
 				sys.stdout.write('\r\tbatch %i of %i: rank(e1) = %i \trank(e2) = %i '\
 					'MRR left = %.5f, Hits@10 left = %.5f, MRR right = %.5f, '\
 					'Hits@10 right = %.5f\t\t\r' % \
-					(k, test_batches_, mean_rank_e1, mean_rank_e2, \
+					(k+1, test_batches_, mean_rank_e1, mean_rank_e2, \
 					MRR_left, hits_10l/n_examples, MRR_right, \
 					hits_10r/n_examples))
 		mean_rank_left = np.sum(ranks_left)/float(len(ranks_left))
 		mean_rank_right = np.sum(ranks_right)/float(len(ranks_right))
-		results = {	'mean_rank_left':mean_rank_left,
-				'mean_rank_right':mean_rank_right,
+		results = {	'MR_left':mean_rank_left,
+				'MR_right':mean_rank_right,
 				'MRR_left':MRR_left,
 				'MRR_right':MRR_right,
 				'Hits1_left':hits_1l/n_examples,
@@ -307,6 +321,8 @@ class KBETaskSetting(object):
 				'Hits10_right':hits_10r/n_examples,
 				'Hits10': (hits_10l + hits_10r)/(n_examples*2),
 				'Hits3': (hits_3l + hits_3r)/(n_examples*2),
-				'Hits1': (hits_1l + hits_1r)/(n_examples*2)}
+				'Hits1': (hits_1l + hits_1r)/(n_examples*2),
+				'MRR': (MRR_left + MRR_right)/2.,
+				'MR': (mean_rank_left + mean_rank_right)/2. }
 		return results
 		

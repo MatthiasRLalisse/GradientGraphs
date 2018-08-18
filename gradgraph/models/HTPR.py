@@ -1,20 +1,19 @@
 import tensorflow as tf
 import numpy as np
 from ..base import KBEModel
-no_zeros = 10e-10
-
 
 class HTPR(KBEModel):
 	def __init__(self,
 		n_entity=None,
 		n_relation=None,
 		entity_dim=5, 
-		relation_dim=5,
+		relation_dim=None,
 		lambda_=None,
 		lrate=.001,
 		model_dir='trained_models',
-		dataName=None ):
-		assert n_entity and n_relation
+		dataName='DataUnknown',
+		epoch_num=None ):
+		if not relation_dim: relation_dim = entity_dim
 		name = 'HTPR%ieD%irD%sL.%s' % (entity_dim, relation_dim, str(lambda_) if \
 							lambda_ else 'inf', dataName)
 		h_dim = relation_dim * entity_dim**2
@@ -23,10 +22,11 @@ class HTPR(KBEModel):
 					h_dim=h_dim,
 					n_entity=n_entity,
 					n_relation=n_relation,
-					lambda_=None,
+					lambda_=lambda_,
 					lrate=lrate,
 					name=name,
-					model_dir=model_dir)
+					model_dir=model_dir,
+					epoch_num=epoch_num)
 		self.mu_h_1, self.mu_h_2 = self.mu_entities()
 
 	def build_x(self):
