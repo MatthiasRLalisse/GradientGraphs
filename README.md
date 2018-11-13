@@ -25,7 +25,7 @@ In Graph Completion tasks, we have shown that this kind "supracompositional" opt
 
 ### The `gradgraph` module
 
-To assist the `gradgraph` provides the basic code for training a gradient Knowledge Graph Completion (KBC) model, as well as examining the representations it has learned. 
+This repository includes the `gradgraph` module, which provides the basic code for training a gradient Knowledge Graph Completion (KBC) model and examining the representations it has learned. 
 
 The demo script `HHolE_demo.py` illustrates the basic functionality of the `gradgraph` package. Start by importing `gradgraph` and initializing a task setting and model, setting the batch size and negative sampling rate (number of negative samples per positive example). A model is initialized with the number of entity and relation embeddings, the dimensionality of the entity embeddings, and the `lambda_` parameter controlling the Faithfulness penalty. If no `lambda_` value is passed, the model will treat `lambda_` as infinite, which just means that the optimal embedding is just the compositional embedding. Some models, like `HTPR`, also take a `relation_dim` parameter since relations and entities can have different dimensionality. 
 
@@ -96,7 +96,7 @@ If you unzip the models into `gradgraph/trained_models`, you can load them autom
 #pre-trained wordnet model
 >>> wn_model = gg.models.HHolE(name='HHolE-wordnet-gold')
 >>> print(wn_model.hyperparams)
-{'entity_dim': 256, 'relation_dim': 256, 'h_dim': 256, 'lambda': 2.0, 'n_entity': 40943, 'n_relation': 18}
+{'train_dropout': 0.0, 'entity_dim': 256, 'relation_dim': 256, 'h_dim': 256, 'lambda': 2.0, 'n_entity': 40943, 'n_relation': 18}
 ```
 
 To replicate the results from our paper, run e.g.:
@@ -236,4 +236,3 @@ analyzer.neighbors('John McCain', r_name, 'US President', direction='l', entity_
 ```
 
 <a name="myfootnote1">1</a>: More precisely,  for`analyzer.neighbors` compares two different sets of triplet embeddings: (1) compositional triplet embeddings, and (2) the optimized triplet embeddings. When computing the neighborhood of the compositional triplet ``t = (e1, r, e2)``, we compare `t` with other compositional triplet embeddings. On the other hand, when computing the semantic neighborhood for the optimized embedding `hat_t`, we compare it with other optimized triplet embeddings.
-
