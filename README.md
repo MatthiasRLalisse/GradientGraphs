@@ -202,7 +202,7 @@ Querying e1: ('John McCain', '/government/politician/government_positions_held./
 
 ### Getting entity tokens
 
-For certain models, you can also obtain approximate *token embeddings* of a given entity by inverting the triplet composition function. Except for extremely simple composition models (e.g. concatenation of entity and relation vectors), there isn't a unique factorization of triplet representations into a composition of entity and relation tokens that might have generated them. For instance, ![HDistMult](./doc/HDistMult.png) compositional embeddings are obtained via elementwise multiplication of the entity and relation vectors:
+For certain models, you can also obtain *token embeddings* of a given entity by inverting the triplet composition function. Except for extremely simple composition models (e.g. concatenation of entity and relation vectors), there isn't a unique factorization of triplet representations into a composition of entity and relation tokens that might have generated them. For instance, ![HDistMult](./doc/HDistMult.png) compositional embeddings are obtained via elementwise multiplication of the entity and relation vectors:
 
 ![HDistMult composition function](./doc/HDistMult_composition_fn.png)
 
