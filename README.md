@@ -206,7 +206,7 @@ For certain models, you can also obtain *token embeddings* of a given entity by 
 
 ![HDistMult composition function](./doc/HDistMult_composition_fn.png)
 
-For any given value of `x_HDM`, there are infinitely many vectors `e1`, `r`, and `e2` satisfying the above equality. But by fixing `r` and `e2` to their token embeddings, we can solve for the contextually optimal embedding of `e1` by multiplying ![h_hat](./doc/h_hat_.png) by the elementwise reciprocals of `r` and `e` :
+For any given value of `x_HDM`, there are infinitely many vectors `e1`, `r`, and `e2` satisfying the above equality. But by fixing `r` and `e2` to their token embeddings, we can solve for the contextually optimal embedding of `e1` by multiplying ![h_hat](./doc/h_hat_.png) by the elementwise reciprocals of `r` and `e2` :
 
 ![e_hat](./doc/e_hat_1.png)
 
