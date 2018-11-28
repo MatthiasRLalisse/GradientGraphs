@@ -214,8 +214,7 @@ To retrieve these contextually optimal entity embeddings, use `model.predict_tok
 
 ```python
 e1_embedding, e1_token_embedding = model.predict_token(e1_idx, r_idx, e2_idx, direction='l')
-e2_embedding, e2_token_embedding = model.predict_token(e1_idx, r_idx, e2_idx)
-															#direction defaults to 'r'
+e2_embedding, e2_token_embedding = model.predict_token(e1_idx, r_idx, e2_idx)       #direction defaults to 'r'
 ```
 
 Since composition functions vary between models, the inverses of these composition functions also vary, and need to be defined for each model separately (see the files in `gradgraph/models` for examples).
