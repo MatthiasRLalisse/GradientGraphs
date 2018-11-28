@@ -130,7 +130,7 @@ To replicate the results from our paper, run e.g.:
 Analyzing the representations
 ----------------------------
 
-`gradgraph` also allows you to analyze the representations learned by the network. To use this functionality, load in a trained model and initialize a `gg.Analyzer` object with a trained model:
+`gradgraph` also allows you to analyze the representations learned by the network. To use this functionality, load in a trained model and initialize a `gg.Analyzer` object with the model as argument:
 
 ```python
 analyzer = gg.Analyzer(my_model)
